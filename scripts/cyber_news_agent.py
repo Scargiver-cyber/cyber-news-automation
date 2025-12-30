@@ -10,21 +10,26 @@ import requests
 import feedparser
 from datetime import datetime
 from pathlib import Path
-import google.generativeai as genai
 
 # Configuration
-OBSIDIAN_VAULT = "/Users/jasontilson/Library/Mobile Documents/com~apple~CloudDocs/Cyber Vault"
-NEWS_FOLDER = "Daily News"
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+OBSIDIAN_VAULT = "/Users/jasontilson/Documents/Big Bad"
+NEWS_FOLDER = "Cyber News/Daily News"
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+USE_AI = os.getenv("NEWS_USE_AI", "false").lower() == "true"  # Set NEWS_USE_AI=true to enable Claude
 
-# News Sources - Major Cybersecurity News Sites Only
+# News Sources - Major Cybersecurity News Sites
 RSS_FEEDS = {
-    "The Hacker News": "https://feeds.feedburner.com/TheHackersNews",
-    "Bleeping Computer": "https://www.bleepingcomputer.com/feed/",
-    "Krebs on Security": "https://krebsonsecurity.com/feed/",
+    "BleepingComputer": "https://www.bleepingcomputer.com/feed/",
     "Dark Reading": "https://www.darkreading.com/rss.xml",
-    "Threatpost": "https://threatpost.com/feed/",
+    "The Hacker News": "https://feeds.feedburner.com/TheHackersNews",
+    "CISA Advisories": "https://www.cisa.gov/cybersecurity-advisories/all.xml",
+    "Databreaches.net": "https://www.databreaches.net/feed/",
+    "Hackread": "https://www.hackread.com/feed/",
+    "Infosecurity Magazine": "https://www.infosecurity-magazine.com/rss/news/",
+    "NIST Cybersecurity": "https://www.nist.gov/blogs/cybersecurity-insights/rss.xml",
     "SecurityWeek": "https://www.securityweek.com/feed/",
+    "The Register Security": "https://www.theregister.com/security/headlines.atom",
+    "Wired Security": "https://www.wired.com/feed/category/security/latest/rss",
 }
 
 
@@ -89,61 +94,58 @@ def calculate_importance_score(article):
     return score
 
 
-def summarize_with_gemini(articles):
-    """Use Google Gemini to analyze and summarize the news articles"""
-    if not GEMINI_API_KEY:
-        print("⚠️  No Gemini API key found, falling back to keyword-based ranking...")
+def summarize_with_claude(articles):
+    """Use Claude API to analyze and summarize the news articles (optional)"""
+    if not ANTHROPIC_API_KEY:
+        print("⚠️  No Anthropic API key found, using keyword-based ranking...")
         return None
 
     try:
-        # Configure Gemini
-        genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # Prepare article text (limit to top 15 by keyword score)
+        scored = [(calculate_importance_score(a), a) for a in articles]
+        scored.sort(reverse=True, key=lambda x: x[0])
+        top_articles = [a for _, a in scored[:15]]
 
-        # Prepare article text for Gemini
         articles_text = ""
-        for i, article in enumerate(articles, 1):
-            articles_text += f"\n\n---\n**Article {i}: {article['source']}**\n"
-            articles_text += f"Title: {article['title']}\n"
-            articles_text += f"Link: {article['link']}\n"
-            articles_text += f"Summary: {article['summary']}\n"
+        for i, article in enumerate(top_articles, 1):
+            articles_text += f"{i}. [{article['source']}] {article['title']}\n"
 
-        prompt = f"""You are a cybersecurity analyst. Review the following cybersecurity news articles from today and identify the TOP 10 MOST IMPORTANT stories based on:
-- Severity and impact of security threats
-- Critical vulnerabilities or zero-days
-- Significant threat actor campaigns
-- Major security incidents or breaches
-- Important security tool or technology releases
-- Regulatory or policy changes affecting security
+        prompt = f"""Rank these cybersecurity news headlines by importance. Pick the top 10 and for each provide: title, source, and 1-sentence summary.
 
-For each of the top 10 stories, provide:
-1. **Story number and headline**
-2. **Source and link**
-3. **A detailed 3-4 sentence summary** explaining what happened, why it matters, and potential impact
-4. **Severity rating** (Critical/High/Medium) if applicable
-
-Format your response as:
-
+Format as:
 ## Top 10 Cybersecurity Stories
+### 1. [Title]
+Source: [Source] | Severity: [Critical/High/Medium]
+Summary: [One sentence]
 
-### 1. [Story Title]
-**Source:** [Source Name]
-**Link:** [URL]
-**Summary:** [Your detailed 3-4 sentence summary here]
-**Severity:** [Critical/High/Medium]
+Headlines:
+{articles_text}"""
 
-[Continue for all 10 stories]
+        # Call Claude API
+        response = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": ANTHROPIC_API_KEY,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json"
+            },
+            json={
+                "model": "claude-3-haiku-20240307",
+                "max_tokens": 2000,
+                "messages": [{"role": "user", "content": prompt}]
+            },
+            timeout=60
+        )
 
-Articles to analyze:
-{articles_text}
-
-Format your response in Markdown suitable for an Obsidian note. Only include the top 10 most important stories."""
-
-        response = model.generate_content(prompt)
-        return response.text
+        if response.status_code == 200:
+            result = response.json()
+            return result["content"][0]["text"]
+        else:
+            print(f"⚠️  Claude API error: {response.status_code}")
+            return None
 
     except Exception as e:
-        print(f"⚠️  Gemini API error: {e}")
+        print(f"⚠️  Claude error: {e}")
         print("Falling back to keyword-based ranking...")
         return None
 
@@ -299,7 +301,7 @@ tags: [cybersecurity, news, daily-brief, top-stories]
 
     # Save to Obsidian vault
     vault_path = Path(OBSIDIAN_VAULT) / NEWS_FOLDER
-    vault_path.mkdir(exist_ok=True)
+    vault_path.mkdir(parents=True, exist_ok=True)
 
     note_path = vault_path / f"Daily Brief - {date_str}.md"
 
@@ -323,11 +325,15 @@ def main():
         print("❌ No articles fetched. Exiting.")
         return
 
-    # Summarize with AI (Gemini) or fall back to keyword-based ranking
-    print("\n🤖 Analyzing and ranking stories with AI...")
-    summary = summarize_with_gemini(articles)
-
-    if not summary:
+    # Default: keyword-based ranking (fast, no API needed)
+    # Optional: Claude AI enhancement if NEWS_USE_AI=true
+    if USE_AI and ANTHROPIC_API_KEY:
+        print("\n🤖 Analyzing with Claude AI (NEWS_USE_AI=true)...")
+        summary = summarize_with_claude(articles)
+        if not summary:
+            print("📊 Falling back to keyword-based ranking...")
+            summary = summarize_without_api(articles)
+    else:
         print("\n📊 Using keyword-based ranking...")
         summary = summarize_without_api(articles)
 

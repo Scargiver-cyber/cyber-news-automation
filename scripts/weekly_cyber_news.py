@@ -11,9 +11,9 @@ from pathlib import Path
 from collections import defaultdict
 
 # Configuration
-OBSIDIAN_VAULT = "/Users/jasontilson/Library/Mobile Documents/com~apple~CloudDocs/Cyber Vault"
-DAILY_NEWS_FOLDER = "Daily News"
-WEEKLY_DIGEST_FOLDER = "Weekly Digest"
+OBSIDIAN_VAULT = "/Users/jasontilson/Documents/Big Bad"
+DAILY_NEWS_FOLDER = "Cyber News/Daily News"
+WEEKLY_DIGEST_FOLDER = "Cyber News/Weekly News"
 
 
 def get_week_date_range():
@@ -283,7 +283,7 @@ For additional context on this week's developments, refer to:
 
     # Save to Obsidian vault
     vault_path = Path(OBSIDIAN_VAULT) / WEEKLY_DIGEST_FOLDER
-    vault_path.mkdir(exist_ok=True)
+    vault_path.mkdir(parents=True, exist_ok=True)
 
     note_path = vault_path / f"Weekly Digest - {file_date}.md"
 
