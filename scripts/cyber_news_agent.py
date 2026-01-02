@@ -17,17 +17,36 @@ NEWS_FOLDER = "Cyber News/Daily News"
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 USE_AI = os.getenv("NEWS_USE_AI", "false").lower() == "true"  # Set NEWS_USE_AI=true to enable Claude
 
-# News Sources - Major Cybersecurity News Sites
+# News Sources - Major Cybersecurity News Sites (19 sources)
 RSS_FEEDS = {
+    # Tier 1 - Must-read security news
+    "Krebs on Security": "https://krebsonsecurity.com/feed/",
     "BleepingComputer": "https://www.bleepingcomputer.com/feed/",
     "Dark Reading": "https://www.darkreading.com/rss.xml",
     "The Hacker News": "https://feeds.feedburner.com/TheHackersNews",
+    "SecurityWeek": "https://www.securityweek.com/feed/",
+
+    # Tier 2 - Expert blogs & analysis
+    "Schneier on Security": "https://www.schneier.com/feed/",
+    "Troy Hunt": "https://www.troyhunt.com/rss/",
+    "Graham Cluley": "https://grahamcluley.com/feed/",
+    "SANS ISC": "https://isc.sans.edu/rssfeed.xml",
+
+    # Tier 3 - Vendor threat intel
+    "Talos Intelligence": "https://blog.talosintelligence.com/rss/",
+    "Malwarebytes Labs": "https://blog.malwarebytes.com/feed/",
+    "Zero Day Initiative": "https://www.zerodayinitiative.com/blog?format=rss",
+
+    # Tier 4 - Government & standards
     "CISA Advisories": "https://www.cisa.gov/cybersecurity-advisories/all.xml",
+    "NIST Cybersecurity": "https://www.nist.gov/blogs/cybersecurity-insights/rss.xml",
+
+    # Tier 5 - Breach & incident news
     "Databreaches.net": "https://www.databreaches.net/feed/",
     "Hackread": "https://www.hackread.com/feed/",
     "Infosecurity Magazine": "https://www.infosecurity-magazine.com/rss/news/",
-    "NIST Cybersecurity": "https://www.nist.gov/blogs/cybersecurity-insights/rss.xml",
-    "SecurityWeek": "https://www.securityweek.com/feed/",
+
+    # Tier 6 - Tech security coverage
     "The Register Security": "https://www.theregister.com/security/headlines.atom",
     "Wired Security": "https://www.wired.com/feed/category/security/latest/rss",
 }
