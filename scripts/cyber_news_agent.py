@@ -364,4 +364,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    try:
+        main()
+        sys.exit(0)  # Explicit success exit
+    except Exception as e:
+        print(f"❌ Fatal error: {e}", file=sys.stderr)
+        sys.exit(1)  # Explicit failure exit
